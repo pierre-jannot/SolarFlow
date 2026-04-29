@@ -1,23 +1,18 @@
 import argparse
 import os
 from datetime import date, timedelta
-
 import pandas as pd
-
 import config
 from collectors.rte_collector import fetch_rte_production
 from collectors.meteo_collector import fetch_irradiance
 from collectors.csv_collector import load_eco2mix
 from processing.aggregator import aggregate
-
 import logging
 
-
-# Configuration du logging pour une meilleure visibilité des étapes du pipeline
 logging.basicConfig(
-    level=logging.INFO,     # filtre: Changer en DEBUG pour plus de détails
-    format="%(asctime)s [%(levelname)s] : %(name)s - %(message)s",  # 2026-04-28 14:32:05 [INFO] solarflow — Collecte RTE...
-    datefmt="%Y-%m-%d %H:%M:%S",    
+    level=logging.INFO,
+    format="[%(asctime)s] %(levelname)s - %(name)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
 )
 
 logger = logging.getLogger(__name__)
@@ -42,40 +37,49 @@ def parse_args():
 
 
 def main():
-    args = parse_args()
+    try:
+        args = parse_args()
 
-    logger.info("SolarFlow démarré — période : %s → %s", args.start_date, args.end_date)
+        logger.info("SolarFlow démarré — période : %s → %s", args.start_date, args.end_date)
 
-    logger.info("Collecte RTE...")
-    rte_df = fetch_rte_production(args.start_date, args.end_date)
+        logger.info("Collecte RTE...")
+        rte_df = fetch_rte_production(args.start_date, args.end_date)
 
-    logger.info("Collecte Open-Meteo...")
-    meteo_df = fetch_irradiance(
-        config.SOLAR_PARK_LAT,
-        config.SOLAR_PARK_LON,
-        args.start_date,
-        args.end_date,
-    )
+        logger.info("Collecte Open-Meteo...")
+        meteo_df = fetch_irradiance(
+            config.SOLAR_PARK_LAT,
+            config.SOLAR_PARK_LON,
+            args.start_date,
+            args.end_date,
+        )
 
-    logger.info("Chargement CSV éCO2mix...")
-    csv_df = load_eco2mix("data/eco2mix_sample.csv")
+        logger.info("Chargement CSV éCO2mix...")
+        csv_df = load_eco2mix("data/eco2mix_sample.csv", args.start_date, args.end_date)
 
-    logger.info("Agrégation des sources...")
-    result_df = aggregate(rte_df, meteo_df, csv_df)
+        logger.info("Agrégation des sources...")
+        result_df = aggregate(rte_df, meteo_df, csv_df, args.start_date, args.end_date)
 
-    os.makedirs(config.OUTPUT_DIR, exist_ok=True)
-    output_path = os.path.join(
-        config.OUTPUT_DIR,
-        f"solarflow_{args.start_date}_{args.end_date}.{args.output_format}",
-    )
+        if result_df.empty:
+            logger.error("Le pipeline a produit un dataset vide. Vérifiez les sources de données.")
+            return
 
-    if args.output_format == "csv":
-        result_df.to_csv(output_path, index=False)
-    else:
-        result_df.to_json(output_path, orient="records", date_format="iso", indent=2)
+        os.makedirs(config.OUTPUT_DIR, exist_ok=True)
+        output_path = os.path.join(
+            config.OUTPUT_DIR,
+            f"solarflow_{args.start_date}_{args.end_date}.{args.output_format}",
+        )
 
-    logger.info("Dataset généré : %s (%d lignes)", output_path, len(result_df))
+        if args.output_format == "csv":
+            result_df.to_csv(output_path, index=False)
+        else:
+            result_df.to_json(output_path, orient="records", date_format="iso", indent=2)
+
+        logger.info("Dataset généré : %s (%d lignes)", output_path, len(result_df))
+    
+    except Exception as e:
+        logger.critical("Échec critique du pipeline SolarFlow : %s", e, exc_info=True)
 
 
 if __name__ == "__main__":
     main()
+
