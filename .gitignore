@@ -8,3 +8,6 @@ output/*.json
 venv/
 data/*.csv
 data/
+*.Rmd
+*.tex
+*.pdf

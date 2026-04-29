@@ -35,7 +35,7 @@ def load_eco2mix(filepath):
     # Supprimer les lignes d'en-tête dupliquées insérées dans le fichier
     df = df[df["Date"] != "Date"]
 
-    df["timestamp"] = pd.to_datetime(df["Date"] + " " + df["Heure"], format="%Y-%m-%d %H:%M")
+    df["timestamp"] = pd.to_datetime(df["Date - Heure"], utc=True)
     df = df.rename(columns={
         "Région": "region",
         "Solaire (MW)": "solar_production_mw",

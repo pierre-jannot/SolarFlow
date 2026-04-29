@@ -59,7 +59,7 @@ def fetch_irradiance(lat, lon, start_date, end_date):
             "hourly": "shortwave_radiation,direct_radiation,diffuse_radiation",
             "start_date": start_date,
             "end_date": end_date,
-            "timezone": "auto",
+            "timezone": "Etc/UTC",
         }
 
         try:
@@ -82,6 +82,10 @@ def fetch_irradiance(lat, lon, start_date, end_date):
         "dni": hourly["direct_radiation"],
         "dhi": hourly["diffuse_radiation"],
     })
+
+    df['timestamp'] = pd.to_datetime(df['timestamp'])
+    df['timestamp'] = df['timestamp'].dt.tz_localize('Etc/GMT-2')
+    df['timestamp'] = df['timestamp'].dt.tz_convert('UTC')
 
     logger.info("Open-Meteo : %d enregistrements récupérés", len(df))
 
