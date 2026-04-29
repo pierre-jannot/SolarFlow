@@ -14,9 +14,12 @@ def load_eco2mix(filepath):
     Returns:
         DataFrame avec les colonnes timestamp, region, solar_production_mw, consumption_mw
     """
+
     logger.info("Chargement CSV éCO2mix : %s", filepath)
 
     initial_len = sum(1 for _ in open(filepath, encoding="utf-8")) - 1
+
+    # Chargement du CSV avec gestion des valeurs manquantes et des lignes mal formées
     df = pd.read_csv(
         filepath,
         sep=";",
@@ -36,11 +39,10 @@ def load_eco2mix(filepath):
         "Région": "region",
         "Solaire (MW)": "solar_production_mw",
         "Consommation (MW)": "consumption_mw",
-        ## penser à ajouter le start dat end date à envoyer en requete API
     })
 
     df = df[["timestamp", "region", "solar_production_mw", "consumption_mw"]]
     
     logger.info("CSV éCO2mix : %d enregistrements récupérés", len(df))
-    
+
     return df

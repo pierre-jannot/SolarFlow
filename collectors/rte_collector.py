@@ -30,7 +30,11 @@ def _get_token():
         headers=headers,
         data={"grant_type": "client_credentials"},
     )
+
+    
     token_data = response.json()
+    if "access_token" not in token_data:
+        raise RuntimeError(f"Erreur lors de l'obtention du token RTE : {token_data}")
     return token_data["access_token"]
 
 

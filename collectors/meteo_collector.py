@@ -72,6 +72,8 @@ def fetch_irradiance(lat, lon, start_date, end_date):
             json.dump(data, f)
 
     hourly = data["hourly"]
+    if "hourly" not in data:
+        raise RuntimeError(f"Structure de réponse Open-Meteo inattendue : {list(data.keys())}")
 
     df = pd.DataFrame({
         "timestamp": pd.to_datetime(hourly["time"]),
