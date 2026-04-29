@@ -5,18 +5,12 @@ import requests
 import pandas as pd
 
 import config
-<<<<<<< HEAD
 import logging
 
 _CACHE_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "cache")
 
 logger = logging.getLogger(__name__)
 
-=======
-
-_CACHE_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "cache")
-
->>>>>>> 671a12d070bc43f5acf8b3127acbfc933a7b28eb
 
 def _cache_path(key):
     os.makedirs(_CACHE_DIR, exist_ok=True)
@@ -50,21 +44,13 @@ def fetch_rte_production(start_date, end_date):
     Returns:
         DataFrame avec les colonnes timestamp, solar_production_mw
     """
-<<<<<<< HEAD
     logger.info("Récupération production RTE du %s au %s ...", start_date, end_date)
-=======
-    print(f"Récupération production RTE du {start_date} au {end_date}...")
->>>>>>> 671a12d070bc43f5acf8b3127acbfc933a7b28eb
 
     cache_key = f"rte_{start_date}_{end_date}"
     cache_file = _cache_path(cache_key)
 
     if os.path.exists(cache_file):
-<<<<<<< HEAD
-        logger.info("Chargement depuis le cache local : %s", cache_file)
-=======
-        print("  → chargement depuis le cache local")
->>>>>>> 671a12d070bc43f5acf8b3127acbfc933a7b28eb
+        logger.debug("Chargement depuis le cache local : %s", cache_file)
         with open(cache_file, "r") as f:
             data = json.load(f)
     else:
@@ -95,12 +81,11 @@ def fetch_rte_production(start_date, end_date):
                     "solar_production_mw": value["value"],
                 })
 
+    if not records:
+        logger.warning("Aucune donnée SOLAR trouvée dans la réponse RTE (%s → %s)", start_date, end_date)
+
     df = pd.DataFrame(records)
     df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
 
-<<<<<<< HEAD
     logger.info("RTE : %d enregistrements récupérés", len(df))
-=======
-    print(f"  → {len(df)} enregistrements récupérés depuis RTE")
->>>>>>> 671a12d070bc43f5acf8b3127acbfc933a7b28eb
     return df

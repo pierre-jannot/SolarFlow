@@ -1,5 +1,9 @@
 import pandas as pd
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 def load_eco2mix(filepath):
     """Charge un fichier CSV éCO2mix et retourne un DataFrame normalisé.
@@ -10,6 +14,9 @@ def load_eco2mix(filepath):
     Returns:
         DataFrame avec les colonnes timestamp, region, solar_production_mw, consumption_mw
     """
+    logger.info("Chargement CSV éCO2mix : %s", filepath)
+
+    initial_len = sum(1 for _ in open(filepath, encoding="utf-8")) - 1
     df = pd.read_csv(
         filepath,
         sep=";",
@@ -17,6 +24,9 @@ def load_eco2mix(filepath):
         na_values=["N/A", "-", "ND", ""],
         on_bad_lines="skip",
     )
+    skipped = initial_len - len(df)
+    if skipped > 0:
+        logger.warning("%d ligne(s) ignorées (format invalide) dans %s", skipped, filepath)
 
     # Supprimer les lignes d'en-tête dupliquées insérées dans le fichier
     df = df[df["Date"] != "Date"]
@@ -26,12 +36,11 @@ def load_eco2mix(filepath):
         "Région": "region",
         "Solaire (MW)": "solar_production_mw",
         "Consommation (MW)": "consumption_mw",
-<<<<<<< HEAD
         ## penser à ajouter le start dat end date à envoyer en requete API
-=======
->>>>>>> 671a12d070bc43f5acf8b3127acbfc933a7b28eb
     })
 
     df = df[["timestamp", "region", "solar_production_mw", "consumption_mw"]]
-
+    
+    logger.info("CSV éCO2mix : %d enregistrements récupérés", len(df))
+    
     return df

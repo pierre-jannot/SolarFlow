@@ -20,6 +20,8 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",    
 )
 
+logger = logging.getLogger(__name__)
+
 
 def parse_args():
     yesterday = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
@@ -42,12 +44,12 @@ def parse_args():
 def main():
     args = parse_args()
 
-    print(f"SolarFlow démarré — période : {args.start_date} → {args.end_date}")
+    logger.info("SolarFlow démarré — période : %s → %s", args.start_date, args.end_date)
 
-    print("Collecte RTE...")
+    logger.info("Collecte RTE...")
     rte_df = fetch_rte_production(args.start_date, args.end_date)
 
-    print("Collecte Open-Meteo...")
+    logger.info("Collecte Open-Meteo...")
     meteo_df = fetch_irradiance(
         config.SOLAR_PARK_LAT,
         config.SOLAR_PARK_LON,
@@ -55,10 +57,10 @@ def main():
         args.end_date,
     )
 
-    print("Chargement CSV éCO2mix...")
+    logger.info("Chargement CSV éCO2mix...")
     csv_df = load_eco2mix("data/eco2mix_sample.csv")
 
-    print("Agrégation des sources...")
+    logger.info("Agrégation des sources...")
     result_df = aggregate(rte_df, meteo_df, csv_df)
 
     os.makedirs(config.OUTPUT_DIR, exist_ok=True)
@@ -72,7 +74,7 @@ def main():
     else:
         result_df.to_json(output_path, orient="records", date_format="iso", indent=2)
 
-    print(f"Dataset généré : {output_path} ({len(result_df)} lignes)")
+    logger.info("Dataset généré : %s (%d lignes)", output_path, len(result_df))
 
 
 if __name__ == "__main__":
