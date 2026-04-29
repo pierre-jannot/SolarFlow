@@ -26,7 +26,10 @@ def load_eco2mix(filepath):
         "Région": "region",
         "Solaire (MW)": "solar_production_mw",
         "Consommation (MW)": "consumption_mw",
+<<<<<<< HEAD
         ## penser à ajouter le start dat end date à envoyer en requete API
+=======
+>>>>>>> 671a12d070bc43f5acf8b3127acbfc933a7b28eb
     })
 
     df = df[["timestamp", "region", "solar_production_mw", "consumption_mw"]]

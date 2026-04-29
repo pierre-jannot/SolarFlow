@@ -24,9 +24,13 @@ CSV éCO2mix ──────┘
 ## Installation
 
 ```bash
+<<<<<<< HEAD
 # Installation de Python 3.13
 winget install --id Python.Python.3.13 --exact
 # Créer un environnement virtuel
+=======
+# Créer un environnement virtuel (Python 3.12+ requis)
+>>>>>>> 671a12d070bc43f5acf8b3127acbfc933a7b28eb
 py -3.13 -m venv .venv
 source .venv/bin/activate      # Linux/macOS
 .venv\Scripts\activate         # Windows
