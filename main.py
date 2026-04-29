@@ -10,6 +10,7 @@ from collectors.rte_collector import fetch_rte_production
 from collectors.meteo_collector import fetch_irradiance
 from collectors.csv_collector import load_eco2mix
 from processing.aggregator import aggregate
+from processing.validator import validate_timestamps
 
 import logging
 
@@ -23,7 +24,7 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-
+# Fonction principale de la pipeline SolarFlow
 def parse_args():
     yesterday = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
     today = date.today().strftime("%Y-%m-%d")
@@ -46,6 +47,13 @@ def main():
     args = parse_args()
 
     logger.info("SolarFlow démarré — période : %s → %s", args.start_date, args.end_date)
+
+    # Valider les dates avant tout appel API
+    try:
+        validate_timestamps(args.start_date, args.end_date)
+    except ValueError as e:
+        logger.error("Dates invalides : %s", e)
+        sys.exit(1)
 
     # Récupérer les données de production solaire réalisée depuis l'API RTE
     logger.info("Collecte RTE...")

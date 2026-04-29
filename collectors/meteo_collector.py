@@ -3,6 +3,7 @@ import os
 from datetime import date
 import requests
 import pandas as pd
+from processing.validator import validate_dataframe
 
 import config
 import logging
@@ -83,4 +84,8 @@ def fetch_irradiance(lat, lon, start_date, end_date):
     })
 
     logger.info("Open-Meteo : %d enregistrements récupérés", len(df))
+
+    # Valider les données avant de les retourner
+    validate_dataframe(df, "Open-Meteo", ["timestamp", "ghi", "dni", "dhi"])
+
     return df

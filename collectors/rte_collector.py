@@ -3,6 +3,7 @@ import json
 import os
 import requests
 import pandas as pd
+from processing.validator import validate_dataframe
 
 import config
 import logging
@@ -75,7 +76,7 @@ def fetch_rte_production(start_date, end_date):
 
         with open(cache_file, "w") as f:
             json.dump(data, f)
-
+    
     records = []
     for entry in data["actual_generations_per_production_type"]:
         if entry["production_type"] == "SOLAR":
@@ -92,4 +93,8 @@ def fetch_rte_production(start_date, end_date):
     df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
 
     logger.info("RTE : %d enregistrements récupérés", len(df))
+    
+    # Valider les données avant de les retourner
+    validate_dataframe(df, "RTE", ["timestamp", "solar_production_mw"])
+
     return df

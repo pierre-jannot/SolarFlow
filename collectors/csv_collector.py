@@ -1,4 +1,5 @@
 import pandas as pd
+from processing.validator import validate_dataframe
 
 import logging
 
@@ -44,5 +45,8 @@ def load_eco2mix(filepath):
     df = df[["timestamp", "region", "solar_production_mw", "consumption_mw"]]
     
     logger.info("CSV éCO2mix : %d enregistrements récupérés", len(df))
+
+    # Valider les données avant de les retourner
+    validate_dataframe(df, "éCO2mix", ["timestamp", "region", "solar_production_mw", "consumption_mw"])
 
     return df
