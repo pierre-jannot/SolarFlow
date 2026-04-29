@@ -1,5 +1,9 @@
 import pandas as pd
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 def aggregate(rte_df, meteo_df, csv_df):
     """Agrège les données des trois sources sur le timestamp.
@@ -25,7 +29,18 @@ def aggregate(rte_df, meteo_df, csv_df):
     # TODO: nettoyer les données avant le merge ?
     merged = pd.merge(rte_df, meteo_df, on="timestamp", how="outer")
     merged = pd.merge(merged, csv_agg, on="timestamp", how="outer")
+    """
+    Un outer merge conserve tous les timestamps de toutes les sources, même ceux qui n'existent pas dans les autres.
+    -   RTE a des timestamps que Open-Meteo n'a pas → lignes créées avec NaN
+    -   éCO2mix après floor("h") a des timestamps qui ne matchent pas RTE/Meteo → encore des lignes fantômes
+
+    """
 
     merged = merged.sort_values("timestamp").reset_index(drop=True)
+
+    for col in merged.columns:
+        n_nan = merged[col].isna().sum()
+        if n_nan > 0:
+            logger.warning("colonne '%s' contient %d NaN", col, n_nan)
 
     return merged
