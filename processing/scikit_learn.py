@@ -18,8 +18,6 @@ def load_csv(filepath):
     )
     return(df)
 
-# def compute_sklearn():
-
 def main():
     df = load_csv("output/solarflow_2026-01-01_2026-04-27.csv")
     df = df.dropna()
