@@ -3,6 +3,7 @@ import pandas as pd
 import logging
 
 from processing.get_duplicates import aggregate_duplicates_auto
+from processing.cleaner import clean_dataframe
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +42,7 @@ def aggregate(rte_df, meteo_df, csv_df):
     meteo_df["timestamp"] = pd.to_datetime(meteo_df["timestamp"], utc=True).dt.floor("h")
     csv_df["timestamp"] = pd.to_datetime(csv_df["timestamp"], utc=True).dt.floor("h")
 
+    # Agrégation des doublons restants (ex: RTE a parfois 2 enregistrements à la même heure)
     rte_df = aggregate_duplicates_auto(rte_df, ["timestamp"])
     meteo_df = aggregate_duplicates_auto(meteo_df, ["timestamp"])
     csv_df = aggregate_duplicates_auto(csv_df, ["timestamp", "region"])
@@ -50,7 +52,11 @@ def aggregate(rte_df, meteo_df, csv_df):
         consumption_mw=("consumption_mw", "sum"),
     ).reset_index()
 
-    # TODO: nettoyer les données avant le merge ?
+    # Nettoyage des valeurs aberrantes avant le merge
+    rte_df = clean_dataframe(rte_df, "RTE", ["solar_production_mw"])
+    meteo_df = clean_dataframe(meteo_df, "Open-Meteo", ["ghi", "dni", "dhi"])
+    csv_agg = clean_dataframe(csv_agg, "éCO2mix", ["solar_production_mw_csv", "consumption_mw"])
+
     merged = pd.merge(rte_df, meteo_df, on="timestamp", how="inner")
     merged = pd.merge(merged, csv_agg, on="timestamp", how="inner")
     """
