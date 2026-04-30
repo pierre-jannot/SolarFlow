@@ -2,6 +2,8 @@ import pandas as pd
 
 import logging
 
+from processing.get_duplicates import get_duplicates_index
+
 logger = logging.getLogger(__name__)
 
 
@@ -20,6 +22,10 @@ def aggregate(rte_df, meteo_df, csv_df):
     rte_df["timestamp"] = pd.to_datetime(rte_df["timestamp"], utc=True).dt.floor("h")
     meteo_df["timestamp"] = pd.to_datetime(meteo_df["timestamp"], utc=True).dt.floor("h")
     csv_df["timestamp"] = pd.to_datetime(csv_df["timestamp"], utc=True).dt.floor("h")
+
+    rte_df = rte_df.drop(index = get_duplicates_index(rte_df, ["timestamp"]))
+    meteo_df = meteo_df.drop(index = get_duplicates_index(meteo_df, ["timestamp"]))
+    csv_df = csv_df.drop(index = get_duplicates_index(csv_df, ["timestamp", "region"]))
 
     csv_agg = csv_df.groupby("timestamp").agg(
         solar_production_mw_csv=("solar_production_mw", "sum"),
