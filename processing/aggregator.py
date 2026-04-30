@@ -2,7 +2,7 @@ import pandas as pd
 
 import logging
 
-from processing.get_duplicates import get_duplicates_index
+from processing.get_duplicates import aggregate_duplicates_auto
 
 logger = logging.getLogger(__name__)
 
@@ -18,14 +18,32 @@ def aggregate(rte_df, meteo_df, csv_df):
     Returns:
         DataFrame unifié avec toutes les colonnes fusionnées sur le timestamp
     """
+    csv_df = csv_df.sort_values(["region", "timestamp"])
+
+    csv_df = (
+        csv_df
+        .set_index("timestamp")
+        .groupby("region")
+        .apply(lambda g: (
+            g
+            # gérer les doublons intra-région
+            .groupby(level=0).mean()
+            # resample horaire
+            .resample("1h").mean()
+            # interpolation temporelle
+            .interpolate(method="time")
+        ))
+        .reset_index()
+    )
+
     # Normalisation des timestamps en UTC avant merge
     rte_df["timestamp"] = pd.to_datetime(rte_df["timestamp"], utc=True).dt.floor("h")
     meteo_df["timestamp"] = pd.to_datetime(meteo_df["timestamp"], utc=True).dt.floor("h")
     csv_df["timestamp"] = pd.to_datetime(csv_df["timestamp"], utc=True).dt.floor("h")
 
-    rte_df = rte_df.drop(index = get_duplicates_index(rte_df, ["timestamp"]))
-    meteo_df = meteo_df.drop(index = get_duplicates_index(meteo_df, ["timestamp"]))
-    csv_df = csv_df.drop(index = get_duplicates_index(csv_df, ["timestamp", "region"]))
+    rte_df = aggregate_duplicates_auto(rte_df, ["timestamp"])
+    meteo_df = aggregate_duplicates_auto(meteo_df, ["timestamp"])
+    csv_df = aggregate_duplicates_auto(csv_df, ["timestamp", "region"])
 
     csv_agg = csv_df.groupby("timestamp").agg(
         solar_production_mw_csv=("solar_production_mw", "sum"),
@@ -33,8 +51,8 @@ def aggregate(rte_df, meteo_df, csv_df):
     ).reset_index()
 
     # TODO: nettoyer les données avant le merge ?
-    merged = pd.merge(rte_df, meteo_df, on="timestamp", how="left")
-    merged = pd.merge(merged, csv_agg, on="timestamp", how="left")
+    merged = pd.merge(rte_df, meteo_df, on="timestamp", how="inner")
+    merged = pd.merge(merged, csv_agg, on="timestamp", how="inner")
     """
     Un outer merge conserve tous les timestamps de toutes les sources, même ceux qui n'existent pas dans les autres.
     -   RTE a des timestamps que Open-Meteo n'a pas → lignes créées avec NaN

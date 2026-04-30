@@ -59,10 +59,10 @@ def fetch_irradiance(lat, lon, start_date, end_date):
         params = {
             "latitude": ",".join(map(str, lat)),
             "longitude": ",".join(map(str, lon)),
-            "hourly": "shortwave_radiation,direct_radiation,diffuse_radiation",
+            "hourly": "shortwave_radiation_instant,direct_radiation_instant,diffuse_radiation_instant",
             "start_date": start_date,
             "end_date": end_date,
-            "timezone": "Etc/UTC",
+            "timezone": "UTC",
         }
 
         try:
@@ -84,9 +84,9 @@ def fetch_irradiance(lat, lon, start_date, end_date):
 
     df = pd.DataFrame({
         "timestamp": pd.to_datetime(hourly["time"]),
-        "ghi": hourly["shortwave_radiation"],
-        "dni": hourly["direct_radiation"],
-        "dhi": hourly["diffuse_radiation"],
+        "ghi": hourly["shortwave_radiation_instant"],
+        "dni": hourly["direct_radiation_instant"],
+        "dhi": hourly["diffuse_radiation_instant"],
     })
 
     df['timestamp'] = pd.to_datetime(df['timestamp'])
