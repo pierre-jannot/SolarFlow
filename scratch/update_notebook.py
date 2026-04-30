@@ -66,8 +66,47 @@ markdown_interpretation = nbf.v4.new_markdown_cell("""
 *   **Implication pour le modèle** : Un modèle de régression linéaire simple fournira déjà une excellente base (Baseline), mais des modèles non-linéaires (XGBoost, Random Forest) pourraient mieux capturer les variations liées aux autres composantes (DNI/DHI).
 """)
 
+markdown_outliers_title = nbf.v4.new_markdown_cell("""
+## Inventaire des Anomalies par Source de Données (Listing par Fichier)
+
+Cette section répertorie les données aberrantes détectées dans chaque source d'entrée avant le nettoyage final. 
+Les seuils sont basés sur des limites physiques (ex: production négative, consommation impossible).
+""")
+
+code_outliers = nbf.v4.new_code_cell("""
+# Définition des seuils physiques
+LIMITS = {
+    'RTE (solar_production_mw)': {'min': 0, 'max': 20000},
+    'Météo (ghi)': {'min': 0, 'max': 1300},
+    'éCO2mix (consumption_mw)': {'min': 0, 'max': 120000}
+}
+
+print("=== LISTING DES DONNÉES ABERRANTES PAR FICHIER ===\\n")
+
+# 1. Anomalies RTE
+outliers_rte = df[(df['solar_production_mw'] < LIMITS['RTE (solar_production_mw)']['min']) | 
+                  (df['solar_production_mw'] > LIMITS['RTE (solar_production_mw)']['max'])]
+print(f"🔍 SOURCE RTE : {len(outliers_rte)} anomalies détectées")
+if not outliers_rte.empty:
+    display(outliers_rte[['timestamp', 'solar_production_mw']].head(10))
+
+# 2. Anomalies Météo
+outliers_meteo = df[(df['ghi'] < LIMITS['Météo (ghi)']['min']) | 
+                    (df['ghi'] > LIMITS['Météo (ghi)']['max'])]
+print(f"\\n🔍 SOURCE MÉTÉO (Open-Meteo) : {len(outliers_meteo)} anomalies détectées")
+if not outliers_meteo.empty:
+    display(outliers_meteo[['timestamp', 'ghi', 'dni', 'dhi']].head(10))
+
+# 3. Anomalies éCO2mix
+outliers_eco = df[(df['consumption_mw'] < LIMITS['éCO2mix (consumption_mw)']['min']) | 
+                  (df['consumption_mw'] > LIMITS['éCO2mix (consumption_mw)']['max'])]
+print(f"\\n🔍 SOURCE éCO2mix : {len(outliers_eco)} anomalies détectées")
+if not outliers_eco.empty:
+    display(outliers_eco[['timestamp', 'consumption_mw', 'solar_production_mw_csv']].head(10))
+""")
+
 # Ajout des cellules à la fin du notebook
-nb.cells.extend([markdown_intro, code_analysis, markdown_interpretation])
+nb.cells.extend([markdown_intro, code_analysis, markdown_interpretation, markdown_outliers_title, code_outliers])
 
 # Sauvegarde
 with open(nb_path, 'w', encoding='utf-8') as f:
