@@ -4,6 +4,7 @@ from datetime import date
 import requests
 import pandas as pd
 from processing.validator import validate_dataframe
+from processing.aggregator import aggregate_meteo_regions
 
 import config
 import logging
@@ -43,8 +44,10 @@ def fetch_irradiance(lat, lon, start_date, end_date):
         DataFrame avec les colonnes timestamp, ghi, dni, dhi
     """
     logger.info("Récupération irradiance Open-Meteo (%s, %s)...", lat, lon)
-
-    cache_key = f"meteo_{lat}_{lon}_{start_date}_{end_date}"
+    if len(lat)>1:
+        cache_key = f"meteo_nationale_{start_date}_{end_date}"
+    else:
+        cache_key = f"meteo_{lat[0]}_{lon[0]}_{start_date}_{end_date}"
     cache_file = _cache_path(cache_key)
 
     if os.path.exists(cache_file):
@@ -54,8 +57,8 @@ def fetch_irradiance(lat, lon, start_date, end_date):
     else:
         url = _select_url(start_date)
         params = {
-            "latitude": lat,
-            "longitude": lon,
+            "latitude": ",".join(map(str, lat)),
+            "longitude": ",".join(map(str, lon)),
             "hourly": "shortwave_radiation,direct_radiation,diffuse_radiation",
             "start_date": start_date,
             "end_date": end_date,
@@ -72,6 +75,9 @@ def fetch_irradiance(lat, lon, start_date, end_date):
         with open(cache_file, "w") as f:
             json.dump(data, f)
 
+    if len(lat)>1:
+        data = aggregate_meteo_regions(data)
+
     hourly = data["hourly"]
     if "hourly" not in data:
         raise RuntimeError(f"Structure de réponse Open-Meteo inattendue : {list(data.keys())}")
@@ -84,8 +90,6 @@ def fetch_irradiance(lat, lon, start_date, end_date):
     })
 
     df['timestamp'] = pd.to_datetime(df['timestamp'])
-    df['timestamp'] = df['timestamp'].dt.tz_localize('Etc/GMT-2')
-    df['timestamp'] = df['timestamp'].dt.tz_convert('UTC')
 
     logger.info("Open-Meteo : %d enregistrements récupérés", len(df))
 

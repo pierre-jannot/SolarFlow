@@ -2,7 +2,7 @@ import pandas as pd
 
 import logging
 
-from processing.get_duplicates import get_duplicates_index
+from processing.get_duplicates import aggregate_duplicates_auto
 
 logger = logging.getLogger(__name__)
 
@@ -23,9 +23,9 @@ def aggregate(rte_df, meteo_df, csv_df):
     meteo_df["timestamp"] = pd.to_datetime(meteo_df["timestamp"], utc=True).dt.floor("h")
     csv_df["timestamp"] = pd.to_datetime(csv_df["timestamp"], utc=True).dt.floor("h")
 
-    rte_df = rte_df.drop(index = get_duplicates_index(rte_df, ["timestamp"]))
-    meteo_df = meteo_df.drop(index = get_duplicates_index(meteo_df, ["timestamp"]))
-    csv_df = csv_df.drop(index = get_duplicates_index(csv_df, ["timestamp", "region"]))
+    rte_df = aggregate_duplicates_auto(rte_df, ["timestamp"])
+    meteo_df = aggregate_duplicates_auto(meteo_df, ["timestamp"])
+    csv_df = aggregate_duplicates_auto(csv_df, ["timestamp", "region"])
 
     csv_agg = csv_df.groupby("timestamp").agg(
         solar_production_mw_csv=("solar_production_mw", "sum"),
@@ -50,3 +50,23 @@ def aggregate(rte_df, meteo_df, csv_df):
             logger.warning("colonne '%s' contient %d NaN", col, n_nan)
 
     return merged
+
+def aggregate_meteo_regions(data):
+    """Agrège les données de open météo
+
+    Args:
+        data: les données open météo récupérées par l'appel API
+
+    Returns:
+        dictionnaire hourly avec les différentes zones moyennées
+    """
+    dfs = []
+    for region in data:
+        df = pd.DataFrame(region["hourly"])
+        dfs.append(df)
+
+    full = pd.concat(dfs)
+
+    grouped = full.groupby("time").mean().reset_index()
+
+    return {"hourly": grouped}

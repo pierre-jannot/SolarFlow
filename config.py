@@ -6,8 +6,8 @@ load_dotenv()
 RTE_CLIENT_ID = os.getenv("RTE_CLIENT_ID")
 RTE_CLIENT_SECRET = os.getenv("RTE_CLIENT_SECRET")
 
-SOLAR_PARK_LAT = float(os.getenv("SOLAR_PARK_LAT", 43.6115))
-SOLAR_PARK_LON = float(os.getenv("SOLAR_PARK_LON", 3.8772))
+SOLAR_PARK_LAT = os.getenv("SOLAR_PARK_LAT", 43.6115).split(",")
+SOLAR_PARK_LON = os.getenv("SOLAR_PARK_LON", 3.8772).split(",")
 
 OUTPUT_DIR = os.getenv("OUTPUT_DIR", "output")
 
