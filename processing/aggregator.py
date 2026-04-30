@@ -24,29 +24,29 @@ def aggregate(rte_df, meteo_df, csv_df, start_date=None, end_date=None):
         rte_df["timestamp"] = pd.to_datetime(rte_df["timestamp"], utc=True).dt.floor("h")
     if not meteo_df.empty:
         meteo_df["timestamp"] = pd.to_datetime(meteo_df["timestamp"], utc=True).dt.floor("h")
-    if not csv_df.empty:
-        csv_df["timestamp"] = pd.to_datetime(csv_df["timestamp"], utc=True).dt.floor("h")
+    # On ne floor pas csv_df ici, on le fait après la somme des régions
 
-    # Filtrage régional
-    target_region = getattr(config, "SOLAR_REGION", "Occitanie")
-    if not csv_df.empty:
-        csv_df = csv_df[csv_df["region"] == target_region]
 
-    # Agrégation des puissances sur 15 min -> 1h
-    # Remarque : on utilise sum car le brief le demande explicitement bien que ce soit une puissance.
-    # Pour la correction du facteur 4, on devrait utiliser mean. Le prompt indique "somme des solar_production_mw et consumption_mw".
-    # Je vais utiliser 'sum' tel que demandé dans le prompt pour cette tâche ("somme des...").
+    # Agrégation nationale : somme de toutes les régions pour chaque timestamp (15 min)
     if not csv_df.empty:
-        csv_agg = csv_df.groupby("timestamp").agg(
+        # 1. On somme les 12 régions pour chaque pas de temps réel (15 min)
+        # On ne floor pas encore l'heure ici pour ne pas mélanger les quarts d'heure avant la somme
+        csv_national = csv_df.groupby("timestamp").agg(
             solar_production_mw_csv=("solar_production_mw", "sum"),
             consumption_mw=("consumption_mw", "sum"),
         ).reset_index()
+
+        # 2. On passe maintenant à l'échelle horaire (moyenne des 4 quarts d'heure)
+        csv_national["timestamp"] = csv_national["timestamp"].dt.floor("h")
+        csv_agg = csv_national.groupby("timestamp").agg(
+            solar_production_mw_csv=("solar_production_mw_csv", "mean"),
+            consumption_mw=("consumption_mw", "mean"),
+        ).reset_index()
     else:
         csv_agg = pd.DataFrame(columns=["timestamp", "solar_production_mw_csv", "consumption_mw"])
-
-    # Jointures LEFT pour garder la référence sur les dates RTE/Météo demandées
-    merged = pd.merge(rte_df, meteo_df, on="timestamp", how="left")
-    merged = pd.merge(merged, csv_agg, on="timestamp", how="left")
+    # Jointures OUTER pour ne perdre aucune donnée même si une source est vide (ex: RTE)
+    merged = pd.merge(rte_df, meteo_df, on="timestamp", how="outer")
+    merged = pd.merge(merged, csv_agg, on="timestamp", how="outer")
 
     merged = merged.sort_values("timestamp").reset_index(drop=True)
 
