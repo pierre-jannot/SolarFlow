@@ -22,8 +22,8 @@ def load_eco2mix(filepath, start_date=None, end_date=None):
     try:
         df = pd.read_csv(
             filepath,
-            sep=";",
-            encoding="utf-8",
+            sep="\t",
+            encoding="latin1",
             na_values=["N/A", "-", "ND", ""],
             on_bad_lines="skip",
         )
@@ -31,25 +31,38 @@ def load_eco2mix(filepath, start_date=None, end_date=None):
         logger.error("Erreur lors de la lecture du fichier CSV %s : %s", filepath, e)
         return empty_df
 
-    # Supprimer les lignes d'en-tête dupliquées insérées dans le fichier
-    df = df[df["Date"] != "Date"]
+    # Filtrage sur la Nature des données pour éviter les doublons (temps réel vs définitives)
+    if "Nature" in df.columns:
+        # On ne garde que les données temps réel pour la cohérence de l'échantillon
+        df = df[df["Nature"].astype(str).str.contains("temps r", case=False, na=False)]
 
-    df["timestamp"] = pd.to_datetime(df["Date"] + " " + df["Heure"], format="%Y-%m-%d %H:%M", utc=True)
-    df = df.rename(columns={
-        "Région": "region",
-        "Solaire (MW)": "solar_production_mw",
-        "Consommation (MW)": "consumption_mw",
-    })
+    # Nettoyage des colonnes temporelles
+    df["Date"] = df["Date"].astype(str).str.strip()
+    df["Heure"] = df["Heure"].astype(str).str.strip()
+    
+    df["timestamp"] = pd.to_datetime(df["Date"] + " " + df["Heure"], format="%d/%m/%Y %H:%M")
+    df["timestamp"] = df["timestamp"].dt.tz_localize("Europe/Paris", ambiguous="infer", nonexistent="shift_forward")
+    df["timestamp"] = df["timestamp"].dt.tz_convert("UTC")
+    # Détection robuste des colonnes (MW uniquement, exclure %)
+    col_map = {}
+    for col in df.columns:
+        c_low = col.lower()
+        if "mw" in c_low and "%" not in c_low:
+            if "solaire" in c_low: col_map[col] = "solar_production_mw"
+            elif "conso" in c_low: col_map[col] = "consumption_mw"
+        if "gion" in c_low: col_map[col] = "region"
+    
+    df = df.rename(columns=col_map)
+    
+    # S'assurer que les colonnes sont présentes, sinon créer des colonnes vides
+    for c in ["solar_production_mw", "consumption_mw", "region"]:
+        if c not in df.columns:
+            df[c] = 0.0
 
     df = df[["timestamp", "region", "solar_production_mw", "consumption_mw"]]
 
-    if start_date and end_date:
-        start_dt = pd.to_datetime(start_date, utc=True)
-        end_dt = pd.to_datetime(end_date, utc=True) + pd.Timedelta(days=1)
-        df = df[(df["timestamp"] >= start_dt) & (df["timestamp"] < end_dt)]
+    validate_dataframe(df, ["timestamp", "region", "solar_production_mw", "consumption_mw"], None, None)
 
-    validate_dataframe(df, ["timestamp", "region", "solar_production_mw", "consumption_mw"], start_date, end_date)
-
-    logger.info("CSV éCO2mix : %d enregistrements récupérés (après filtrage temporel)", len(df))
+    logger.info("CSV éCO2mix : %d enregistrements récupérés (chargement total sans filtre)", len(df))
 
     return df

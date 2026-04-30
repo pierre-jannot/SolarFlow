@@ -66,8 +66,8 @@ def fetch_rte_production(start_date, end_date):
             }
 
             params = {
-                "start_date": f"{start_date}T00:00:00+02:00",
-                "end_date": f"{end_date}T23:59:59+02:00",
+                "start_date": f"{start_date}T00:00:00Z",
+                "end_date": f"{end_date}T23:59:59Z",
             }
 
             response = requests.get(url, headers=headers, params=params)
