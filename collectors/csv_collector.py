@@ -39,7 +39,7 @@ def load_eco2mix(filepath, start_date=None, end_date=None):
     # Nettoyage des colonnes temporelles
     df["Date"] = df["Date"].astype(str).str.strip()
     df["Heure"] = df["Heure"].astype(str).str.strip()
-    
+
     df["timestamp"] = pd.to_datetime(df["Date"] + " " + df["Heure"], format="%d/%m/%Y %H:%M")
     df["timestamp"] = df["timestamp"].dt.tz_localize("Europe/Paris", ambiguous="infer", nonexistent="shift_forward")
     df["timestamp"] = df["timestamp"].dt.tz_convert("UTC")
@@ -50,10 +50,15 @@ def load_eco2mix(filepath, start_date=None, end_date=None):
         if "mw" in c_low and "%" not in c_low:
             if "solaire" in c_low: col_map[col] = "solar_production_mw"
             elif "conso" in c_low: col_map[col] = "consumption_mw"
-        if "gion" in c_low: col_map[col] = "region"
-    
+        if "gion" in c_low and "code" not in c_low: col_map[col] = "region"
+
     df = df.rename(columns=col_map)
-    
+
+    # Sécurité : éliminer les colonnes dupliquées après normalisation
+    if df.columns.duplicated().any():
+        logger.warning("Colonnes dupliquées détectées après renommage : %s. Suppression.", df.columns[df.columns.duplicated()].tolist())
+        df = df.loc[:, ~df.columns.duplicated()]
+
     # S'assurer que les colonnes sont présentes, sinon créer des colonnes vides
     for c in ["solar_production_mw", "consumption_mw", "region"]:
         if c not in df.columns:
