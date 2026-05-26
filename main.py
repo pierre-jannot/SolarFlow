@@ -2,24 +2,29 @@ import argparse
 import os
 import sys
 from datetime import date, timedelta
+
 import pandas as pd
+
 import config
 from collectors.rte_collector import fetch_rte_production
 from collectors.meteo_collector import fetch_irradiance
 from collectors.csv_collector import load_eco2mix
 from processing.aggregator import aggregate
-from utils import DataValidationError
+from processing.validator import validate_timestamps
+
 import logging
 
+
+# Configuration du logging pour une meilleure visibilité des étapes du pipeline
 logging.basicConfig(
-    level=logging.INFO,
-    format="[%(asctime)s] %(levelname)s - %(name)s - %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
+    level=logging.INFO,     # filtre: Changer en DEBUG pour plus de détails
+    format="%(asctime)s [%(levelname)s] : %(name)s - %(message)s",  # 2026-04-28 14:32:05 [INFO] solarflow — Collecte RTE...
+    datefmt="%Y-%m-%d %H:%M:%S",    
 )
 
 logger = logging.getLogger(__name__)
 
-
+# Fonction principale de la pipeline SolarFlow
 def parse_args():
     yesterday = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
     today = date.today().strftime("%Y-%m-%d")
@@ -39,32 +44,57 @@ def parse_args():
 
 
 def main():
+    args = parse_args()
+
+    logger.info("SolarFlow démarré — période : %s → %s", args.start_date, args.end_date)
+
+    # Valider les dates avant tout appel API
     try:
-        args = parse_args()
+        validate_timestamps(args.start_date, args.end_date)
+    except ValueError as e:
+        logger.error("Dates invalides : %s", e)
+        sys.exit(1)
 
-        logger.info("SolarFlow démarré — période : %s → %s", args.start_date, args.end_date)
-
-        logger.info("Collecte RTE...")
+    # Récupérer les données de production solaire réalisée depuis l'API RTE
+    logger.info("Collecte RTE...")
+    try:
         rte_df = fetch_rte_production(args.start_date, args.end_date)
+    except Exception as e:
+        logger.error("Erreur lors de la collecte RTE : %s", e)
+        sys.exit(1)
 
-        logger.info("Collecte Open-Meteo...")
+    # Récupérer les données d'irradiance pour la même période que RTE, en utilisant les coordonnées du parc solaire
+    logger.info("Collecte Open-Meteo...")
+    try:
         meteo_df = fetch_irradiance(
             config.SOLAR_PARK_LAT,
             config.SOLAR_PARK_LON,
             args.start_date,
             args.end_date,
         )
+    except Exception as e:
+        logger.error("Erreur lors de la collecte Open-Meteo : %s", e)
+        sys.exit(1)
 
-        logger.info("Chargement CSV éCO2mix...")
-        csv_df = load_eco2mix("data/eco2mix_sample.csv", args.start_date, args.end_date)
+    # Récupérer les données du fichier CSV éCO2mix
+    logger.info("Chargement CSV éCO2mix...")
+    try:
+        csv_df = load_eco2mix("data/eco2mix_sample.csv")
+    except Exception as e:
+        logger.error("Erreur lors du chargement du CSV éCO2mix : %s", e)
+        sys.exit(1)
+    
+    # Agréger les données des trois sources sur le timestamp
+    logger.info("Agrégation des sources...")
+    try:
+        result_df = aggregate(rte_df, meteo_df, csv_df)
+    except Exception as e:
+        logger.error("Erreur lors de l'agrégation des données : %s", e)
+        sys.exit(1)
 
-        logger.info("Agrégation des sources...")
-        result_df = aggregate(rte_df, meteo_df, csv_df, args.start_date, args.end_date)
-
-        if result_df.empty:
-            logger.error("Le pipeline a produit un dataset vide. Vérifiez les sources de données.")
-            return
-
+    # Enregistrer le résultat dans le dossier de sortie
+    logger.info("Enregistrement des résultats...")
+    try:
         os.makedirs(config.OUTPUT_DIR, exist_ok=True)
         output_path = os.path.join(
             config.OUTPUT_DIR,
@@ -77,14 +107,9 @@ def main():
             result_df.to_json(output_path, orient="records", date_format="iso", indent=2)
 
         logger.info("Dataset généré : %s (%d lignes)", output_path, len(result_df))
-
-    except DataValidationError as e:
-        logger.error("Erreur de validation des données : %s", e)
-        sys.exit(1)
     except Exception as e:
-        logger.critical("Échec critique du pipeline SolarFlow : %s", e, exc_info=True)
+        logger.error("Erreur lors de l'enregistrement des résultats : %s", e)
         sys.exit(1)
-
 
 if __name__ == "__main__":
     main()

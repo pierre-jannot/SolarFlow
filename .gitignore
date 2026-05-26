@@ -8,4 +8,6 @@ output/*.json
 venv/
 data/*.csv
 data/
-.ipynb_checkpoints/
+*.Rmd
+*.tex
+*.pdf
