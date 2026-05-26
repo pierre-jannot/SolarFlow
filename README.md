@@ -159,4 +159,4 @@ Les seuils physiques suivants sont appliqués sur chaque colonne. Les valeurs n�
 | `consumption_mw` | ~717 | CSV éCO2mix incomplet | Supprimés via inner join |
 | `ghi`, `dni`, `dhi` | 0 | Source complète | Aucun traitement nécessaire |
  
-**Choix documenté** : un `inner join` est appliqué lors de la fusion des trois sources. Seuls les timestamps présents dans les trois sources simultanément sont conservés. Ce choix garantit un dataset sans NaN pour l'entraînement du modèle ML, au prix d'une réduction d'environ 25% du volume de données.
+**Choix documenté** : un `inner join` est appliqué lors de la fusion des trois sources. Seuls les timestamps présents dans les trois sources simultanément sont conservés. Ce choix garantit un dataset sans NaN pour l'entraînement du modèle ML, au prix d'une réduction d'environ 25% du volume de données pour notre exemple. En effet, l'API Open Météo ne permet pas de récupérer des données météo précédant trois mois avant la date d'appel de l'API.
