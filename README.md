@@ -4,13 +4,10 @@ Pipeline de collecte et d'agrégation de données pour la prévision de producti
 Développé en interne chez **GreenWatt** pour alimenter le modèle de prévision J+1 des parcs solaires.
 Le pipeline collecte des données depuis trois sources (RTE, Open-Meteo, éCO2mix), les agrège et produit un dataset horodaté prêt à l'emploi.
 
-## Architecture
+## Schémas d'architecture
 
-```
-API RTE ──────────┐
-API Open-Meteo ───┼──→ Agrégation ──→ Dataset unifié (CSV/JSON)
-CSV éCO2mix ──────┘
-```
+![Schémas d'architecture](./assets/schemas_architecture.png)
+
 
 - **API RTE** : production solaire réalisée et prévisions (données réseau national)
 - **API Open-Meteo** : irradiance solaire horaire (GHI, DNI, DHI)
