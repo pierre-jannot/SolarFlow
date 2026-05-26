@@ -1,5 +1,6 @@
 import argparse
 import os
+import sys
 from datetime import date, timedelta
 import pandas as pd
 import config
@@ -7,6 +8,7 @@ from collectors.rte_collector import fetch_rte_production
 from collectors.meteo_collector import fetch_irradiance
 from collectors.csv_collector import load_eco2mix
 from processing.aggregator import aggregate
+from utils import DataValidationError
 import logging
 
 logging.basicConfig(
@@ -75,11 +77,14 @@ def main():
             result_df.to_json(output_path, orient="records", date_format="iso", indent=2)
 
         logger.info("Dataset généré : %s (%d lignes)", output_path, len(result_df))
-    
+
+    except DataValidationError as e:
+        logger.error("Erreur de validation des données : %s", e)
+        sys.exit(1)
     except Exception as e:
         logger.critical("Échec critique du pipeline SolarFlow : %s", e, exc_info=True)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
     main()
-
