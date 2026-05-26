@@ -28,7 +28,7 @@ Le schéma de données consolidé soumis à l'analyse et à la validation active
 
 ## 3. Anomalies identifiées à l’étape 2
 
-Lors de la phase préliminaire d'audit et d'exploration des données brutes, les anomalies et bruits de mesure suivants ont été identifiés dans notre pipeline :
+Lors de la phase préliminaire d'audit et d'exploration des données brutes, les anomalies et bruits de mesure suivants sont à identifier et nettoyer dans notre pipeline :
 1.  **Doublons temporels** : Plages temporelles qui se chevauchent lors des requêtes d'API successives ou des recalages d'historiques.
 2.  **Valeurs manquantes (NaN)** : Trous de collecte ponctuels dus à des interruptions temporaires de service des API.
 3.  **Production solaire négative** : Bruits de mesure réseau rapportés par RTE (valeurs légèrement négatives non physiques pour du solaire).
