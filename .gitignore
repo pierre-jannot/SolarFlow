@@ -11,3 +11,6 @@ data/
 *.Rmd
 *.tex
 *.pdf
+notebooks/.ipynb_checkpoints/boxplots_horaires-checkpoint.ipynb
+notebooks/.ipynb_checkpoints/exploration-checkpoint.ipynb
+notebooks/.ipynb_checkpoints/modelisation-checkpoint.ipynb
