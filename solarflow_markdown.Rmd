@@ -1,0 +1,309 @@
+---
+title: "SolarFlow - Analyse descriptive"
+author: "Aurélien CANDILLIER - Pierre JANNOT - Jean-Baptiste LIZE"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(ggplot2)
+
+stats_col <- function(x) {
+  c(
+    min = min(x, na.rm = TRUE),
+    max = max(x, na.rm = TRUE),
+    mean = mean(x, na.rm = TRUE),
+    med = median(x, na.rm = TRUE),
+    sd = sd(x, na.rm = TRUE)
+  )
+}
+```
+
+Dans l'objectif de réaliser un entrainement de modèle de Machine Learning sur des données, nous avons utilisé un pipeline Python récupérant des données météo depuis plusieurs sites différents. Avant tout entrainement, il est nécessiare de réaliser une étude des données pour vérifier s'il n'y a pas de corrections à faire.
+
+# Import des données
+
+Importation des données et paramètrage R de la colonne timestamp.
+
+```{r data, message=FALSE}
+data <- read_csv("output/solarflow_2026-01-01_2026-04-27_origin.csv")
+data$timestamp <- as.POSIXct(data$timestamp, format = "%Y-%m-%d %H:%M:%S%z", tz = "UTC")
+```
+\newpage
+# Statistiques descriptives des données produites par le pipeline Python
+
+Affichage des minimums, maximums, moyennes, médianes et écart-types par colonne :
+
+## Production solaire (RTE)
+
+```{r rte_solar, echo=FALSE}
+stats_col(data$solar_production_mw)
+```
+
+## Production solaire (CSV)
+
+```{r ;csv_solar, echo=FALSE}
+stats_col(data$solar_production_mw_csv)
+```
+
+## Consommation totale (CSV)
+
+```{r ;csv_cons, echo=FALSE}
+stats_col(data$consumption_mw)
+```
+
+## Comparaison RTE/CSV et consommation d'énergie
+```{r rte_csv, echo=FALSE}
+boxplot(data$solar_production_mw,
+        data$solar_production_mw_csv,
+        data$consumption_mw,
+        names = c("Prod. solaire RTE", "Prod. solaire CSV", "Cons. totale"),
+        main = "Comparaison des productions et consommations d'énergie",
+        ylab = "MW")
+```
+
+## Shortwave radiation (Meteo)
+
+```{r meteo_ghi, echo=FALSE}
+stats_col(data$ghi)
+```
+
+## Direct radiation (Meteo)
+
+```{r meteo_dni, echo=FALSE}
+stats_col(data$dni)
+```
+
+## Diffuse radiation (Meteo)
+
+```{r meteo_dhi, echo=FALSE}
+stats_col(data$dhi)
+```
+
+## Boxplot radiations
+```{r rads, echo=FALSE}
+boxplot(data$ghi,
+        data$dni,
+        data$dhi,
+        names = c("Shortwave", "Direct", "Diffuse"),
+        main = "Comparaison des irradiances solaires",
+        ylab = "W/m")
+```
+
+À l'exception de la consommation d'énergie, on observe pour chaque colonne une moyenne et une valeur maximale particulièrement élevées en comparaison de la médiane.
+
+La production d'énergie solaire récupérée par le CSV est de plus beaucoup plus élevée que celle obtenue par l'API RTE, avec un rapport multiplicatif de différence de 3 à 4. Il serait donc important de comparer les valeurs agrégées des valeurs brutes du fichier csv pour vérifier qu'il n'y a pas de somme des lignes répétées.
+
+# Production solaire et irradiance
+
+Afin de voir s'il n'y a pas des valeurs anormales, nous devons vérifier que les périodes de production d'énergie solaire les plus importantes correspondent aux périodes de plus forte irradiance. Afin de proposer une lecture plus facile, nous réalisons d'abord la moyenne journalière des valeurs et la normalisation des colonnes, puis on affiche le graphique suivant :
+
+```{r, echo=FALSE}
+data$day <- as.Date(data$timestamp)
+daily <- aggregate(
+  cbind(ghi, solar_production_mw, solar_production_mw_csv) ~ day,
+  data = data,
+  FUN = mean,
+  na.rm = TRUE
+)
+
+daily$ghi_z <- scale(daily$ghi)
+daily$rte_z <- scale(daily$solar_production_mw)
+daily$csv_z <- scale(daily$solar_production_mw_csv)
+
+plot(daily$ghi_z, daily$rte_z,
+     main = "Relation journalière normalisée (GHI vs RTE)",
+     xlab = "GHI (normalisé)",
+     ylab = "Production RTE (normalisée)",
+     pch = 16)
+
+abline(lm(rte_z ~ ghi_z, data = daily), col = "red")
+
+points(daily$ghi_z, daily$csv_z, col = "blue", pch = 16)
+
+legend("topleft",
+       legend = c("RTE", "CSV"),
+       col = c("black", "blue"),
+       pch = 16)
+
+cor(daily$ghi_z, daily$rte_z, use = "complete.obs")
+cor(daily$rte_z, daily$csv_z, use = "complete.obs")
+```
+
+Le graphique obtenu montre une courbe de tendance qui représente bien la répartition des points. Les données RTE et CSV sont assez bien superposées à l'exception de quelques valeurs.
+
+On peut maintenant afficher la production et l'irradiance en fonction du temps pour savoir si les données semblent bien corrélées.
+\newpage
+
+## Séparation horaire
+
+```{r hourly, echo=FALSE}
+data$ghi_z <- scale(data$ghi)
+data$dhi_z <- scale(data$dhi)
+data$dni_z <- scale(data$dni)
+data$rte_z <- scale(data$solar_production_mw)
+data$csv_z <- scale(data$solar_production_mw_csv)
+
+data$hour <- format(as.POSIXct(data$timestamp), "%H")
+
+data_hour <- data[, c("hour", "dni_z", "rte_z", "csv_z")]
+
+data_hour_long <- data_hour %>%
+  pivot_longer(cols = -hour,
+               names_to = "variable",
+               values_to = "value")
+
+ggplot(data_hour_long, aes(x = hour, y = value, fill = variable)) +
+  geom_boxplot(position = "dodge") +
+  theme_minimal() +
+  labs(title = "Distribution de la production par heure",
+       x = "Heure",
+       y = "Production (MW)",
+       fill = "Source") 
+```
+Sur ce graphique on peut observer un problème majeur. Les trois types de données semblent décalés. Le pic de production des données RTE est visible à 11 h, sur le CSV à 12/13 h et sur l'irradiance à 14 h. On peut estimer que cette erreur vienne d'un décalage horaire causé par une différence dans le format horaire récupéré et dans la façon dont il est traité.
+
+# Correctif réalisé
+
+
+Afin de résoudre ce problème, nous avons mis en place plusieurs correctifs sur le pipeline Python, corrigeant l'heure de certaines données, la façon dont la valeur est calculée pour le CSV qui ne présentait pas des valeurs uniques par heure ainsi que la zone géographique de récupération des données d'irradiance pour couvrir l'ensemble de la France.
+
+On peut maintenant réaliser la même opération pour observer si les corrections ont corrigé les erreurs observées.
+\newpage
+
+```{r data_2, message=FALSE, echo=FALSE}
+data <- read_csv("output/solarflow_2026-01-01_2026-04-27.csv")
+data$timestamp <- as.POSIXct(data$timestamp, format = "%Y-%m-%d %H:%M:%S%z", tz = "UTC")
+```
+
+# Statistiques descriptives des données produites par le pipeline Python
+
+Affichage des minimums, maximums, moyennes, médianes et écart-types par colonne :
+
+## Production solaire (RTE)
+
+```{r rte_solar_2, echo=FALSE}
+stats_col(data$solar_production_mw)
+```
+
+## Production solaire (CSV)
+
+```{r ;csv_solar_2, echo=FALSE}
+stats_col(data$solar_production_mw_csv)
+```
+
+## Consommation totale (CSV)
+
+```{r ;csv_cons_2, echo=FALSE}
+stats_col(data$consumption_mw)
+```
+
+## Comparaison RTE/CSV et consommation d'énergie
+```{r rte_csv_2, echo=FALSE}
+boxplot(data$solar_production_mw,
+        data$solar_production_mw_csv,
+        data$consumption_mw,
+        names = c("Prod. solaire RTE", "Prod. solaire CSV", "Cons. totale"),
+        main = "Comparaison des productions et consommations d'énergie",
+        ylab = "MW")
+```
+
+## Shortwave radiation (Meteo)
+
+```{r meteo_ghi_2, echo=FALSE}
+stats_col(data$ghi)
+```
+
+## Direct radiation (Meteo)
+
+```{r meteo_dni_2, echo=FALSE}
+stats_col(data$dni)
+```
+
+## Diffuse radiation (Meteo)
+
+```{r meteo_dhi_2, echo=FALSE}
+stats_col(data$dhi)
+```
+
+## Boxplot radiations
+```{r rads_2, echo=FALSE}
+boxplot(data$ghi,
+        data$dni,
+        data$dhi,
+        names = c("Shortwave", "Direct", "Diffuse"),
+        main = "Comparaison des irradiances solaires",
+        ylab = "W/m")
+```
+
+On observe ici une bien meilleure correspondance entre les données RTE et CSV qui présentent la même moyenne, la même valeur maximale et le même écart-type. Le graphique montre bien aussi que le facteur multiplicatif entre les deux jeux de données a bien été corrigé.
+
+En ce qui concerne l'irradiance, on observe des valeurs très similaires aux précédentes, malgré l'ajout de nombreux parcs solaires français.
+
+# Production solaire et irradiance
+
+```{r, echo=FALSE}
+data$day <- as.Date(data$timestamp)
+daily <- aggregate(
+  cbind(ghi, solar_production_mw, solar_production_mw_csv) ~ day,
+  data = data,
+  FUN = mean,
+  na.rm = TRUE
+)
+
+daily$ghi_z <- scale(daily$ghi)
+daily$rte_z <- scale(daily$solar_production_mw)
+daily$csv_z <- scale(daily$solar_production_mw_csv)
+
+plot(daily$ghi_z, daily$rte_z,
+     main = "Relation journalière normalisée (GHI vs RTE)",
+     xlab = "GHI (normalisé)",
+     ylab = "Production RTE (normalisée)",
+     pch = 16)
+
+abline(lm(rte_z ~ ghi_z, data = daily), col = "red")
+
+points(daily$ghi_z, daily$csv_z, col = "blue", pch = 16)
+
+legend("topleft",
+       legend = c("RTE", "CSV"),
+       col = c("black", "blue"),
+       pch = 16)
+
+cor(daily$ghi_z, daily$rte_z, use = "complete.obs")
+cor(daily$rte_z, daily$csv_z, use = "complete.obs")
+```
+
+La corrélation observée entre les données RTE et CSV est plus importante, et les points de chaque jeu de données semblent beaucoup plus proches de la courbe de tendance.
+
+## Séparation horaire
+
+```{r hourly_2, echo=FALSE}
+data$ghi_z <- scale(data$ghi)
+data$dhi_z <- scale(data$dhi)
+data$dni_z <- scale(data$dni)
+data$rte_z <- scale(data$solar_production_mw)
+data$csv_z <- scale(data$solar_production_mw_csv)
+
+data$hour <- format(as.POSIXct(data$timestamp), "%H")
+
+data_hour <- data[, c("hour", "dni_z", "rte_z", "csv_z")]
+
+data_hour_long <- data_hour %>%
+  pivot_longer(cols = -hour,
+               names_to = "variable",
+               values_to = "value")
+
+ggplot(data_hour_long, aes(x = hour, y = value, fill = variable)) +
+  geom_boxplot(position = "dodge") +
+  theme_minimal() +
+  labs(title = "Distribution de la production par heure",
+       x = "Heure",
+       y = "Production (MW)",
+       fill = "Source")
+```
+
+Ici on peut observer que les données CSV et RTE présentent bien des valeurs de production d'énergie similaire aux mêmes heures. En ce qui concerne l'irradiance, malgré un recalage de 2 h, il semblerait qu'il y ait toujours un décalage avec la production d'énergie. En effet, d'après ce graphique, la production d'énergie commence à augmenter avant l'irradiance, et s'arrête avant l'irradiance.
+  
+On peut estimer qu'il y a toujours un décalage d'une heure mais qui est peut-être dû à la façon dont les données sont mesurées, cela peut par exemple correspondre à l'irradiance observée sur la dernière heure face à la production observée sur la prochaine heure.
